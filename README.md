@@ -13,7 +13,7 @@ If you want to add more sections, please do so after the existing ones (avoid bu
 
 ## Up & running (optional) 🏃‍➡️
 
-This should contain step by step instructions to run your project (delete this section if it's not relevant). \
+This should contain step by step instructions to run your project (delete this section if it's not relevant).
 Also include login credentials or other vital information if needed.
 
 ## Sources 🗃️
