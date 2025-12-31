@@ -1,3 +1,5 @@
+//help retrieving from database used in server.js > line 54 > https://www.mongodb.com/docs/php-library/current/crud/query/retrieve/
+
 //make inst from class
 import credentials from "./credentials.js";
 import { MongoClient, ServerApiVersion } from "mongodb";
@@ -10,16 +12,13 @@ let collection;
 
 //database connection
 async function database(databaseName, collectionName) {
-  if (dB) return dB; // checks if connected? then reuse
-
   try {
     await client.connect();
     dB = client.db(databaseName);
     collection = dB.collection(collectionName);
-
     await dB.command({ ping: 1 });
     console.log("Connected to MongoDB successfully");
-    return dB;
+    return collection;
   } catch (error) {
     console.error("Database connection error:", error.message);
     throw error;
@@ -42,27 +41,35 @@ app.get("/user", async (req, res) => {
     await database("webApp", "users"); // sees connection + conncts to right database/collection
     const users = await collection.find().toArray();
     res.send(users);
-  } catch {
+  } catch (error) {
     res.status(500).send({ error: error.message });
   }
 });
 
 app.post("/login", async (req, res) => {
   try {
-    await database("webApp", "users");
-    let username = req.body.name;
-    let password = req.body.password;
-    // let databaseUsername = database("webApp", "users").find(
-    //   {},
-    //   { projection: { username: 1, password: 1 } }
-    // );
-    // res.send(databaseUsername);
-    if (username == "Donald Duck" && password == "quack") {
+    //database connection and retrieving
+    const users = await database("webApp", "users");
+    const { username, password } = req.body;
+    const user = await users.findOne(
+      { username: username },
+      { projection: { username: 1, password: 1 } }
+    );
+
+    if (!user) {
+      return res.status(401).json({
+        login: false,
+        message:
+          "User not found, please check your username or click on forgot username",
+      });
+    }
+    // password check
+    if (user.password == password) {
       res.send("Login succesful");
     } else {
       res.status(401).json({
         login: false,
-        message: "Invalid credentials, try again",
+        message: "Invalid password. Please try again",
         data: { username: username, password: password },
       });
     }
