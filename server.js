@@ -40,9 +40,14 @@ const port = 3000;
 //handled as json
 app.use(express.json());
 //basic get route
-app.get("/", (req, res) => {
-  res.send("Hello World");
+app.get("/user", async (req, res) => {
+  try {
+    res.send("Successfully retrieved user data.");
+  } catch {
+    res.status(500).send(`error:${JSON.stringify(error)}`);
+  }
 });
+
 //port
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
