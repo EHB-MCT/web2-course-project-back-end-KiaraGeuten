@@ -77,24 +77,53 @@ app.post("/login", async (req, res) => {
     res.status(500).send(`error:${JSON.stringify(error)}`);
   }
 });
+app.post("/sign-up", async (req, res) => {
+  try {
+    const users = await database("webApp", "users");
+    const {
+      profile_picture,
+      first_name,
+      last_name,
+      mail,
+      username,
+      password,
+      major,
+      code,
+      tags,
+      my_concerts,
+      my_groups,
+    } = req.body;
+    const user = await users.findOne({ username });
+    if (user) {
+      return res.status(401).json({
+        signup: false,
+        message: "Username already taken. Please choose another one",
+      });
+    }
+    //create user and insert in database
+    await users.insertOne({
+      profile_picture,
+      first_name,
+      last_name,
+      mail,
+      username,
+      password, // later hash this!
+      major,
+      code,
+      tags,
+      my_concerts,
+      my_groups,
+    });
+    res.send({
+      signup: true,
+      message: "Account created successfully",
+      username,
+    });
+  } catch (error) {
+    res.status(500).send(`error:${JSON.stringify(error)}`);
+  }
+});
 //port
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
 });
-
-//  // try {
-//   // Connect the client to the server	(optional starting in v4.7)
-//   await client.connect();
-//   // Send a ping to confirm a successful connection
-//   await dB.command({ ping: 1 });
-//   console.log(
-//     "Pinged your deployment. You successfully connected to MongoDB!"
-//   );
-//   message = "hello world: sucess";
-//   res.send("Successfully retrieved user data.");
-// // } catch {
-//   res.status(500).send(`error:${JSON.stringify(error)}`);
-// } finally {
-//   // Ensures that the client will close when you finish/error
-//   await client.close();
-// }
