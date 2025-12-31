@@ -1,32 +1,28 @@
 //make inst from class
 import credentials from "./credentials.js";
+import { MongoClient, ServerApiVersion } from "mongodb";
 const databaseAdmin = credentials.username;
 const databasePassword = credentials.password;
-//database
-import { MongoClient, ServerApiVersion } from "mongodb";
-
 const uri = `mongodb+srv://${databaseAdmin}:${databasePassword}@concert.c7w1mwc.mongodb.net/?appName=concert`;
+const client = new MongoClient(uri);
+let dB;
+let collection;
 
-//object for api
-const client = new MongoClient(uri, {
-  serverApi: {
-    version: ServerApiVersion.v1,
-    strict: true,
-    deprecationErrors: true,
-  },
-});
-async function run() {
+//database connection
+async function database(databaseName, collectionName) {
+  if (dB) return dB; // checks if connected? then reuse
+
   try {
-    // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
-    // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
-  } finally {
-    // Ensures that the client will close when you finish/error
-    await client.close();
+    dB = client.db(databaseName);
+    collection = dB.collection(collectionName);
+
+    await dB.command({ ping: 1 });
+    console.log("Connected to MongoDB successfully");
+    return dB;
+  } catch (error) {
+    console.error("Database connection error:", error.message);
+    throw error;
   }
 }
 
@@ -39,12 +35,15 @@ const port = 3000;
 
 //handled as json
 app.use(express.json());
-//basic get route
+
+//routes
 app.get("/user", async (req, res) => {
   try {
-    res.send("Successfully retrieved user data.");
+    await database("webApp", "users"); // sees connection + conncts to right database/collection
+    const users = await collection.find().toArray();
+    res.send(users);
   } catch {
-    res.status(500).send(`error:${JSON.stringify(error)}`);
+    res.status(500).send({ error: error.message });
   }
 });
 
@@ -52,3 +51,20 @@ app.get("/user", async (req, res) => {
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
 });
+
+//  // try {
+//   // Connect the client to the server	(optional starting in v4.7)
+//   await client.connect();
+//   // Send a ping to confirm a successful connection
+//   await dB.command({ ping: 1 });
+//   console.log(
+//     "Pinged your deployment. You successfully connected to MongoDB!"
+//   );
+//   message = "hello world: sucess";
+//   res.send("Successfully retrieved user data.");
+// // } catch {
+//   res.status(500).send(`error:${JSON.stringify(error)}`);
+// } finally {
+//   // Ensures that the client will close when you finish/error
+//   await client.close();
+// }
