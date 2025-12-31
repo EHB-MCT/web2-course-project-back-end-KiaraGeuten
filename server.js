@@ -47,6 +47,29 @@ app.get("/user", async (req, res) => {
   }
 });
 
+app.post("/login", async (req, res) => {
+  try {
+    await database("webApp", "users");
+    let username = req.body.name;
+    let password = req.body.password;
+    // let databaseUsername = database("webApp", "users").find(
+    //   {},
+    //   { projection: { username: 1, password: 1 } }
+    // );
+    // res.send(databaseUsername);
+    if (username == "Donald Duck" && password == "quack") {
+      res.send("Login succesful");
+    } else {
+      res.status(401).json({
+        login: false,
+        message: "Invalid credentials, try again",
+        data: { username: username, password: password },
+      });
+    }
+  } catch (error) {
+    res.status(500).send(`error:${JSON.stringify(error)}`);
+  }
+});
 //port
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
