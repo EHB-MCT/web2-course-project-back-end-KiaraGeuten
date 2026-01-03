@@ -30,3 +30,4 @@ IF you use a source as the base/start for a file, then first place the source in
 Have a look at the example repository: https://github.com/EHB-MCT/example-readme
 
 retrieving from database used in server.js > line 54 > https://www.mongodb.com/docs/php-library/current/crud/query/retrieve/
+putting readme as html used in server.js> line 135-137 > https://chatgpt.com/share/695868e2-0c64-8008-9916-48ca987654cf

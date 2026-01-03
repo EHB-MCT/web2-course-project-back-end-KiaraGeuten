@@ -133,7 +133,6 @@ app.post("/sign-up", async (req, res) => {
 
 //read me
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 app.get("/", async (req, res) => {
   try {
     const readmePath = path.join(process.cwd(), "README.md");
