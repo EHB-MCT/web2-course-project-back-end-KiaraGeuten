@@ -6,9 +6,23 @@ VibeTribe is a web application that allows users to create accounts, log in, and
 
 **Website URL:** [Api-vibetribe.be](https://web2-course-project-back-end-kiarageuten.onrender.com/)
 
-## Up & running (optional) 🏃‍➡️
+## Up & running 🏃‍➡️
 
 run nodemon server.js
+
+### Endpoints
+
+/sign-up
+stored user in database
+
+/update-user-info/:username
+updates info about 1 user
+
+/login
+checks credentials
+
+/user
+gets all info about 1 user
 
 ## Sources 🗃️
 
