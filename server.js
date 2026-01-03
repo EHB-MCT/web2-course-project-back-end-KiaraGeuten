@@ -135,10 +135,25 @@ app.post("/sign-up", async (req, res) => {
 const __filename = fileURLToPath(import.meta.url);
 app.get("/", async (req, res) => {
   try {
-    const readmePath = path.join(process.cwd(), "README.md");
+    const readmePath = path.join(process.cwd(), "README.public.md");
     const content = await fs.promises.readFile(readmePath, "utf8");
 
-    res.type("text/plain").send(content);
+    res.send(`
+      <!doctype html>
+      <html>
+        <head>
+          <title>Public Docs</title>
+          <style>
+            body { font-family: system-ui; padding: 2rem; line-height: 1.5; }
+            pre { white-space: pre-wrap; background: #f6f8fa; padding: 1rem; border-radius: 6px; }
+          </style>
+        </head>
+        <body>
+          <h1>API Documentation</h1>
+          <pre>${content}</pre>
+        </body>
+      </html>
+    `);
   } catch (err) {
     res.status(500).send("README not found");
   }
@@ -146,4 +161,12 @@ app.get("/", async (req, res) => {
 //port
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
+});
+
+//debug read me
+app.get("/debug", (req, res) => {
+  res.json({
+    cwd: process.cwd(),
+    files: fs.readdirSync(process.cwd()),
+  });
 });
