@@ -10,7 +10,6 @@ import "dotenv/config";
 import bcrypt from "bcrypt";
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
 let dB;
 let collection;
 
@@ -33,8 +32,9 @@ async function database(databaseName, collectionName) {
 import express from "express";
 const app = express();
 const port = 3000;
+
 //TO FIX images public, later
-// app.use(express.static("public"));
+app.use(express.static("public"));
 
 //handled as json
 app.use(express.json());
@@ -104,6 +104,7 @@ app.post("/sign-up", async (req, res) => {
         message: "Username already taken. Please choose another one",
       });
     }
+    //encrypt password
     const hashedPassword = await bcrypt.hash(password, 10);
     //create user and insert in database
     await users.insertOne({
@@ -112,14 +113,13 @@ app.post("/sign-up", async (req, res) => {
       last_name,
       mail,
       username,
-      hashedPassword, // later hash this!
+      password: hashedPassword,
       major,
       code,
       tags,
       my_concerts,
       my_groups,
     });
-    //encrypt password
 
     res.send({
       signup: true,
@@ -130,9 +130,31 @@ app.post("/sign-up", async (req, res) => {
     res.status(500).send(`error:${JSON.stringify(error)}`);
   }
 });
+app.put("/update-user-info/:username", async (req, res) => {
+  try {
+    const users = await database("webApp", "users");
+    const { username } = req.params;
+    const updateData = req.body;
 
+    if (updateData.password) {
+      const hashedPassword = await bcrypt.hash(updateData.password, 10);
+      updateData.password = hashedPassword;
+    }
+    const result = await users.updateOne(
+      { username }, // filter by username
+      { $set: updateData } // update only the fields provided
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.send("updated data succesfully");
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 //read me
-const __filename = fileURLToPath(import.meta.url);
 app.get("/", async (req, res) => {
   try {
     const readmePath = path.join(process.cwd(), "README.public.md");
