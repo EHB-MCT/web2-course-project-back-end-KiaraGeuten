@@ -1,12 +1,16 @@
 //help retrieving from database used in server.js > line 54 > https://www.mongodb.com/docs/php-library/current/crud/query/retrieve/
+// read me file from chatgpt
 
 //make inst from class
 import credentials from "./credentials.js";
 import { MongoClient, ServerApiVersion } from "mongodb";
-const databaseAdmin = credentials.username;
-const databasePassword = credentials.password;
-const uri = `mongodb+srv://${databaseAdmin}:${databasePassword}@concert.c7w1mwc.mongodb.net/?appName=concert`;
+const uri = process.env.MONGO_URI;
 const client = new MongoClient(uri);
+import "dotenv/config";
+import bcrypt from "bcrypt";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 let dB;
 let collection;
 
@@ -100,6 +104,7 @@ app.post("/sign-up", async (req, res) => {
         message: "Username already taken. Please choose another one",
       });
     }
+    const hashedPassword = await bcrypt.hash(password, 10);
     //create user and insert in database
     await users.insertOne({
       profile_picture,
@@ -107,13 +112,15 @@ app.post("/sign-up", async (req, res) => {
       last_name,
       mail,
       username,
-      password, // later hash this!
+      hashedPassword, // later hash this!
       major,
       code,
       tags,
       my_concerts,
       my_groups,
     });
+    //encrypt password
+
     res.send({
       signup: true,
       message: "Account created successfully",
@@ -121,6 +128,20 @@ app.post("/sign-up", async (req, res) => {
     });
   } catch (error) {
     res.status(500).send(`error:${JSON.stringify(error)}`);
+  }
+});
+
+//read me
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+app.get("/", async (req, res) => {
+  try {
+    const readmePath = path.join(process.cwd(), "README.md");
+    const content = await fs.promises.readFile(readmePath, "utf8");
+
+    res.type("text/plain").send(content);
+  } catch (err) {
+    res.status(500).send("README not found");
   }
 });
 //port
