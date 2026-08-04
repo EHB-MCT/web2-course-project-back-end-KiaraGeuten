@@ -40,6 +40,43 @@ app.use(express.static("public"));
 app.use(express.json());
 
 //routes
+
+app.get("/", async (req, res) => {
+  try {
+    const readmePath = path.join(process.cwd(), "README.md");
+    const content = await fs.promises.readFile(readmePath, "utf8");
+
+    res.send(`
+      <!doctype html>
+      <html>
+        <head>
+          <title>API Documentation</title>
+          <style>
+            body { font-family: system-ui; padding: 2rem; line-height: 1.5; }
+            pre { white-space: pre-wrap; background: #f6f8fa; padding: 1rem; border-radius: 6px; }
+          </style>
+        </head>
+        <body>
+          <h1>API Documentation</h1>
+          <pre>${content}</pre>
+        </body>
+      </html>
+    `);
+  } catch (err) {
+    res.status(500).send("README not found");
+  }
+});
+
+app.get("/cards", async (req, res) => {
+  try {
+    await database("riftboundApiDB", "cards");
+    const cards = await collection.find().toArray();
+    res.send(cards);
+  } catch (error) {
+    res.status(500).send({ error: error.message });
+  }
+});
+
 app.get("/user", async (req, res) => {
   try {
     await database("webApp", "users"); // sees connection + conncts to right database/collection
@@ -57,7 +94,7 @@ app.post("/login", async (req, res) => {
     const { username, password } = req.body;
     const user = await users.findOne(
       { username: username },
-      { projection: { username: 1, password: 1 } }
+      { projection: { username: 1, password: 1 } },
     );
 
     if (!user) {
@@ -142,7 +179,7 @@ app.put("/update-user-info/:username", async (req, res) => {
     }
     const result = await users.updateOne(
       { username }, // filter by username
-      { $set: updateData } // update only the fields provided
+      { $set: updateData }, // update only the fields provided
     );
 
     if (result.matchedCount === 0) {
@@ -154,32 +191,7 @@ app.put("/update-user-info/:username", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-//read me
-app.get("/", async (req, res) => {
-  try {
-    const readmePath = path.join(process.cwd(), "README.public.md");
-    const content = await fs.promises.readFile(readmePath, "utf8");
 
-    res.send(`
-      <!doctype html>
-      <html>
-        <head>
-          <title>Public Docs</title>
-          <style>
-            body { font-family: system-ui; padding: 2rem; line-height: 1.5; }
-            pre { white-space: pre-wrap; background: #f6f8fa; padding: 1rem; border-radius: 6px; }
-          </style>
-        </head>
-        <body>
-          <h1>API Documentation</h1>
-          <pre>${content}</pre>
-        </body>
-      </html>
-    `);
-  } catch (err) {
-    res.status(500).send("README not found");
-  }
-});
 //port
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
