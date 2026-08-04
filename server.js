@@ -1,32 +1,14 @@
 //help retrieving from database used in server.js > line 54 > https://www.mongodb.com/docs/php-library/current/crud/query/retrieve/
 // read me file from chatgpt
 
-//make inst from class
-import credentials from "./credentials.js";
-import { MongoClient, ServerApiVersion } from "mongodb";
-const uri = process.env.MONGO_URI;
-const client = new MongoClient(uri);
-import "dotenv/config";
 import bcrypt from "bcrypt";
 import fs from "fs";
 import path from "path";
-let dB;
-let collection;
 
-//database connection
-async function database(databaseName, collectionName) {
-  try {
-    await client.connect();
-    dB = client.db(databaseName);
-    collection = dB.collection(collectionName);
-    await dB.command({ ping: 1 });
-    console.log("Connected to MongoDB successfully");
-    return collection;
-  } catch (error) {
-    console.error("Database connection error:", error.message);
-    throw error;
-  }
-}
+//db conncect
+import { connectDB } from "./database.js";
+
+await connectDB();
 
 //server app setup
 import express from "express";
@@ -67,15 +49,9 @@ app.get("/", async (req, res) => {
   }
 });
 
-app.get("/cards", async (req, res) => {
-  try {
-    await database("riftboundApiDB", "cards");
-    const cards = await collection.find().toArray();
-    res.send(cards);
-  } catch (error) {
-    res.status(500).send({ error: error.message });
-  }
-});
+//get cards
+import cardRoutes from "./routes/cards.js";
+app.use("/cards", cardRoutes);
 
 app.get("/user", async (req, res) => {
   try {
