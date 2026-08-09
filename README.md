@@ -28,3 +28,6 @@ gets all info about 1 user
 
 retrieving from database used in server.js > line 54 > https://www.mongodb.com/docs/php-library/current/crud/query/retrieve/
 putting readme as html used in server.js> line 135-137 > https://chatgpt.com/share/695868e2-0c64-8008-9916-48ca987654cf
+seperating server.js in different files used in sever.js, database.js, routes > https://chatgpt.com/share/6a7213a5-a8e0-83eb-9237-ea3ee6265def
+using riftbound cards used in cards.js> https://riftcodex.com/
+batching used in cards.js >https://chatgpt.com/share/6a72232b-1974-83eb-a0b0-7646f8f7e983

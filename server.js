@@ -52,6 +52,8 @@ app.get("/", async (req, res) => {
 //get cards
 import cardRoutes from "./routes/cards.js";
 app.use("/cards", cardRoutes);
+import importRoutes from "./routes/import.js";
+app.use("/import", importRoutes);
 
 app.get("/user", async (req, res) => {
   try {
