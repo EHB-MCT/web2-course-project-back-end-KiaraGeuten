@@ -32,3 +32,5 @@ seperating server.js in different files used in sever.js, database.js, routes > 
 using riftbound cards used in cards.js> https://riftcodex.com/
 batching used in cards.js >https://chatgpt.com/share/6a72232b-1974-83eb-a0b0-7646f8f7e983
 using search opperations used in cards.js > https://www.mongodb.com/docs/manual/reference/operator/query/regex/
+typeof used in cards.js > https://www.w3schools.com/js/js_typeof.asp
+trim used in cards.js > https://dev.to/technoph1le/the-javascript-stringtrim-method-explained-4b61#how-it-works

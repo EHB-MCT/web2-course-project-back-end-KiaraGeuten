@@ -18,15 +18,16 @@ router.get("/", async (req, res) => {
 router.get("/search", async (req, res) => {
   try {
     const db = getDB();
-    let qName = req.query.name;
-    let qSet = req.query.set;
+    let qName = req.query.name?.trim();
+    let qSet = req.query.set?.trim();
     let qEnergy = req.query.energy;
     let qMight = req.query.might;
-    console.log(qMight);
+    let qPower = req.query.power;
+
     const filters = [];
 
     //validates against user errors & protects for maluse by defining the query
-    if (!qName && !qSet && !qEnergy && !qMight) {
+    if (!qName && !qSet && !qEnergy && !qMight && !qPower) {
       return res.status(400).json("Please enter a valid parameter");
     }
     if (qName && typeof qName !== "string") {
@@ -58,9 +59,9 @@ router.get("/search", async (req, res) => {
         "set.set_id": new RegExp(qSet, "i"),
       });
     }
+
     if (qEnergy !== undefined) {
       const energy = Number(qEnergy);
-      console.log(energy);
 
       if (!Number.isInteger(energy) || energy < 0 || energy > 12) {
         return res.status(400).json({
@@ -72,6 +73,36 @@ router.get("/search", async (req, res) => {
         });
       }
     }
+
+    if (qMight !== undefined) {
+      const might = Number(qMight);
+
+      if (!Number.isInteger(might) || might < 0 || might > 12) {
+        return res.status(400).json({
+          message: "Invalid might",
+        });
+      } else {
+        filters.push({
+          "attributes.might": might,
+        });
+      }
+    }
+
+    if (qPower !== undefined && qPower !== "null") {
+      const power = Number(qPower);
+      console.log(power, ": not null");
+      if (!Number.isInteger(power) || power < 0 || power > 5) {
+        return res.status(400).json({
+          message: "Invalid power",
+        });
+      } else {
+        filters.push({ "attributes.power": power });
+      }
+    } else if (qPower == "null") {
+      const power = null;
+      filters.push({ "attributes.power": power });
+    }
+
     //search in db
     const search = await db
       .collection("cards")
@@ -84,6 +115,7 @@ router.get("/search", async (req, res) => {
         message: "No cards matched your search. Please check your query",
       });
     }
+
     res.send(search);
   } catch (error) {
     res.status(500).json({ message: error.message });
