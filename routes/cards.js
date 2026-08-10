@@ -23,35 +23,56 @@ router.get("/search", async (req, res) => {
     let qEnergy = req.query.energy;
     let qMight = req.query.might;
     let qPower = req.query.power;
-    let qDomain = req.query.domain.split(",");
+    let qDomain = req.query.domain?.split(",");
+    let qType = req.query.type;
+    let qRarity = req.query.rarity;
 
     const filters = [];
 
-    //validates against user errors & protects for maluse by defining the query
-    if (!qName && !qSet && !qEnergy && !qMight && !qPower && !qDomain) {
+    //validates against user errors & protects for maluse by defining the query - overal
+    if (
+      !qName &&
+      !qSet &&
+      !qEnergy &&
+      !qMight &&
+      !qPower &&
+      !qDomain &&
+      !qType &&
+      !qRarity
+    ) {
       return res.status(400).json("Please enter a valid parameter");
     }
+
+    if (
+      qName?.length > 100 ||
+      qSet?.length > 100 ||
+      qDomain?.length > 2 ||
+      qType?.length > 50 ||
+      qRarity?.length > 100
+    ) {
+      return res.status(400).json({
+        message: "Search query is too long",
+      });
+    }
+
+    // -----------------------specific
+
+    //name
     if (qName && typeof qName !== "string") {
       return res.status(400).json({
         message: "Invalid name",
       });
     }
 
-    if (qSet && typeof qSet !== "string") {
-      return res.status(400).json({
-        message: "Invalid set",
-      });
-    }
-
-    if (qName?.length > 100 || qSet?.length > 100) {
-      return res.status(400).json({
-        message: "Search query is too long",
-      });
-    }
-
     if (qName) {
       filters.push({
         name: new RegExp(qName, "i"),
+      });
+    }
+    //set
+    if (qSet && typeof qSet !== "string") {
+      return res.status(400).json({
+        message: "Invalid set",
       });
     }
 
@@ -61,6 +82,7 @@ router.get("/search", async (req, res) => {
       });
     }
 
+    //--------attributes
     if (qEnergy !== undefined) {
       const energy = Number(qEnergy);
 
@@ -91,7 +113,7 @@ router.get("/search", async (req, res) => {
 
     if (qPower !== undefined && qPower !== "null") {
       const power = Number(qPower);
-      console.log(power, ": not null");
+
       if (!Number.isInteger(power) || power < 0 || power > 5) {
         return res.status(400).json({
           message: "Invalid power",
@@ -104,10 +126,34 @@ router.get("/search", async (req, res) => {
       filters.push({ "attributes.power": power });
     }
 
+    //--------classification
+    //domain
     if (qDomain) {
       filters.push({ "classification.domain": { $in: qDomain } });
     }
+    //type
+    if (qType && typeof qType !== "string") {
+      return res.status(400).json({
+        message: "Invalid set",
+      });
+    }
 
+    if (qType) {
+      filters.push({ "classification.type": new RegExp(`^${qType}$`, "i") });
+    }
+    //rarity
+
+    if (qRarity && typeof qRarity !== "string") {
+      return res.status(400).json({
+        message: "Invalid set",
+      });
+    }
+
+    if (qRarity) {
+      filters.push({
+        "classification.rarity": new RegExp(`^${qRarity}$`, "i"),
+      });
+    }
     //search in db
     const search = await db
       .collection("cards")
