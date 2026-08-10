@@ -23,11 +23,12 @@ router.get("/search", async (req, res) => {
     let qEnergy = req.query.energy;
     let qMight = req.query.might;
     let qPower = req.query.power;
+    let qDomain = req.query.domain.split(",");
 
     const filters = [];
 
     //validates against user errors & protects for maluse by defining the query
-    if (!qName && !qSet && !qEnergy && !qMight && !qPower) {
+    if (!qName && !qSet && !qEnergy && !qMight && !qPower && !qDomain) {
       return res.status(400).json("Please enter a valid parameter");
     }
     if (qName && typeof qName !== "string") {
@@ -101,6 +102,10 @@ router.get("/search", async (req, res) => {
     } else if (qPower == "null") {
       const power = null;
       filters.push({ "attributes.power": power });
+    }
+
+    if (qDomain) {
+      filters.push({ "classification.domain": { $in: qDomain } });
     }
 
     //search in db
