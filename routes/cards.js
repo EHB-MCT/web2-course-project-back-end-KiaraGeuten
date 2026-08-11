@@ -45,7 +45,8 @@ router.get("/search", async (req, res) => {
       !qRarity &&
       !qAlternateArt &&
       !qOvernumbered &&
-      !qSignature
+      !qSignature &&
+      !qChase
     ) {
       return res.status(400).json("Please enter a valid parameter");
     }
