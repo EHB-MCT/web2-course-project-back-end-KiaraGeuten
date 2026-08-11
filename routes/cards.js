@@ -24,12 +24,12 @@ router.get("/search", async (req, res) => {
     let qMight = req.query.might;
     let qPower = req.query.power;
     let qDomain = req.query.domain?.split(",");
-    let qType = req.query.type;
-    let qRarity = req.query.rarity;
-    let qAlternateArt = req.query.alternate_art;
-    let qOvernumbered = req.query.overnumbered;
-    let qSignature = req.query.signature;
-    let qChase = req.query.chase;
+    let qType = req.query.type?.trim();
+    let qRarity = req.query.rarity?.trim();
+    let qAlternateArt = req.query.alternate_art?.trim();
+    let qOvernumbered = req.query.overnumbered?.trim();
+    let qSignature = req.query.signature?.trim();
+    let qChase = req.query.chase?.trim();
 
     const filters = [];
 
