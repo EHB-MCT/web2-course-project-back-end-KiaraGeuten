@@ -26,6 +26,10 @@ router.get("/search", async (req, res) => {
     let qDomain = req.query.domain?.split(",");
     let qType = req.query.type;
     let qRarity = req.query.rarity;
+    let qAlternateArt = req.query.alternate_art;
+    let qOvernumbered = req.query.overnumbered;
+    let qSignature = req.query.signature;
+    let qChase = req.query.chase;
 
     const filters = [];
 
@@ -38,7 +42,10 @@ router.get("/search", async (req, res) => {
       !qPower &&
       !qDomain &&
       !qType &&
-      !qRarity
+      !qRarity &&
+      !qAlternateArt &&
+      !qOvernumbered &&
+      !qSignature
     ) {
       return res.status(400).json("Please enter a valid parameter");
     }
@@ -154,6 +161,35 @@ router.get("/search", async (req, res) => {
         "classification.rarity": new RegExp(`^${qRarity}$`, "i"),
       });
     }
+
+    //metadata
+    if (qAlternateArt !== undefined) {
+      filters.push({
+        "metadata.alternate_art": qAlternateArt === "true",
+      });
+    }
+
+    if (qOvernumbered !== undefined) {
+      filters.push({
+        "metadata.overnumbered": qOvernumbered === "true",
+      });
+    }
+
+    if (qSignature !== undefined) {
+      filters.push({
+        "metadata.signature": qSignature === "true",
+      });
+    }
+
+    //chase cards
+    if (qChase === "true") {
+      const chaseCards = await db.collection("chaseCards").find({}).toArray();
+      const chaseIds = chaseCards.map((card) => card.cardId);
+      filters.push({
+        _id: { $in: chaseIds },
+      });
+    }
+
     //search in db
     const search = await db
       .collection("cards")
