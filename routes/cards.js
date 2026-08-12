@@ -14,6 +14,8 @@ router.get("/", async (req, res) => {
   }
 });
 
+//TODO: add supertype for champion units
+
 //look for a specific card
 router.get("/search", async (req, res) => {
   try {
@@ -24,7 +26,7 @@ router.get("/search", async (req, res) => {
     let qMight = req.query.might;
     let qPower = req.query.power;
     let qDomain = req.query.domain?.split(",");
-    let qType = req.query.type?.trim();
+    let qType = req.query.type?.split(",");
     let qRarity = req.query.rarity?.trim();
     let qAlternateArt = req.query.alternate_art?.trim();
     let qOvernumbered = req.query.overnumbered?.trim();
@@ -55,7 +57,7 @@ router.get("/search", async (req, res) => {
       qName?.length > 100 ||
       qSet?.length > 100 ||
       qDomain?.length > 2 ||
-      qType?.length > 50 ||
+      qType?.length > 10 ||
       qRarity?.length > 100
     ) {
       return res.status(400).json({
@@ -139,16 +141,16 @@ router.get("/search", async (req, res) => {
     if (qDomain) {
       filters.push({ "classification.domain": { $in: qDomain } });
     }
-    //type
-    if (qType && typeof qType !== "string") {
-      return res.status(400).json({
-        message: "Invalid set",
+
+    //type -> allows multiple types now due to deckbuilder
+    if (qType) {
+      filters.push({
+        "classification.type": {
+          $in: qType.map((type) => new RegExp(`^${type.trim()}$`, "i")),
+        },
       });
     }
 
-    if (qType) {
-      filters.push({ "classification.type": new RegExp(`^${qType}$`, "i") });
-    }
     //rarity
 
     if (qRarity && typeof qRarity !== "string") {
