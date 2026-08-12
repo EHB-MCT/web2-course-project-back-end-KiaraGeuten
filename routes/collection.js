@@ -1,4 +1,4 @@
-/// get, post, put, delete, count
+/// get, post, put, delete, count + import
 //user id left in so if needed filter on user id for their collection
 // trade/extra — derived (total − 4)
 
@@ -133,6 +133,89 @@ router.delete("/:cardId", async (req, res) => {
       return res.status(404).send("Card not found");
     }
     res.send("You have succesfully removed  " + card + " from your database");
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.get("/count", async (req, res) => {
+  try {
+    const db = getDB();
+    let totalCards = await db.collection("cards").countDocuments();
+
+    let ownedCards = await db.collection("collections").countDocuments();
+
+    // let progress = (ownedCards / totalCards) * 100;
+    res.send("Your have currently collected: " + ownedCards + "/" + totalCards);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.get("/count/set", async (req, res) => {
+  try {
+    const db = getDB();
+    let totalCards = await db.collection("cards").countDocuments();
+    let ownedCards = await db.collection("collections").countDocuments();
+
+    //different stages for looking up cards and grouping them by set
+    const pipelineOwned = [
+      {
+        $lookup: {
+          from: "cards",
+          localField: "card_id",
+          foreignField: "id",
+          as: "card",
+        },
+      },
+      {
+        $unwind: "$card",
+      },
+      {
+        $group: {
+          _id: "$card.set.set_id",
+          amount: { $sum: 1 },
+        },
+      },
+    ];
+
+    const pipelineTotal = [
+      {
+        $group: {
+          _id: "$set.set_id",
+          amount: { $sum: 1 },
+        },
+      },
+    ];
+    //convert cursor to array so can be displayed
+    const groupTotal = await db
+      .collection("cards")
+      .aggregate(pipelineTotal)
+      .toArray();
+
+    const groupOwned = await db
+      .collection("collections")
+      .aggregate(pipelineOwned)
+      .toArray();
+
+    //match them
+    const matched = groupTotal.map((totalItem) => {
+      let owned = groupOwned.find((item) => item._id === totalItem._id);
+      if (owned === undefined) {
+        owned = {
+          _id: totalItem._id,
+          amount: 0,
+        };
+      }
+      console.log("owned:", groupOwned);
+      console.log("looking for:", totalItem._id);
+      return {
+        set_id: totalItem._id,
+        amount: "You have collected " + owned.amount + "/" + totalItem.amount,
+      };
+    });
+
+    res.send(matched);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

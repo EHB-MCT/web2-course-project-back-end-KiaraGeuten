@@ -21,8 +21,7 @@ app.use(express.static("public"));
 //handled as json
 app.use(express.json());
 
-//routes
-
+//read me
 app.get("/", async (req, res) => {
   try {
     const readmePath = path.join(process.cwd(), "README.md");
@@ -49,13 +48,15 @@ app.get("/", async (req, res) => {
   }
 });
 
+//routes
 import cardRoutes from "./routes/cards.js";
-app.use("/cards", cardRoutes);
 import importRoutes from "./routes/import.js";
-app.use("/import", importRoutes);
 import chaseRoutes from "./routes/chase.js";
-app.use("/chase", chaseRoutes);
 import collectionRoutes from "./routes/collection.js";
+
+app.use("/cards", cardRoutes);
+app.use("/import", importRoutes);
+app.use("/chase", chaseRoutes);
 app.use("/collection", collectionRoutes);
 
 app.get("/user", async (req, res) => {

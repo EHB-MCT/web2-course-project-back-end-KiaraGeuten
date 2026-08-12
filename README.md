@@ -37,3 +37,4 @@ trim used in cards.js > https://dev.to/technoph1le/the-javascript-stringtrim-met
 value mapping used in cards.js > https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
 deleting docs used in chase.js >https://www.mongodb.com/docs/drivers/node/v6.x/crud/delete/
 counting quantity in array used in colection.js > https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/reduce
+collection properties used in collection.js > https://www.mongodb.com/docs/drivers/node/current/crud/query/count/ & https://www.mongodb.com/docs/manual/reference/operator/aggregation/group/ & https://www.mongodb.com/docs/manual/reference/operator/aggregation/lookup/
