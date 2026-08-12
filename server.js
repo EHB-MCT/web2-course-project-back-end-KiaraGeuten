@@ -49,13 +49,14 @@ app.get("/", async (req, res) => {
   }
 });
 
-//get cards
 import cardRoutes from "./routes/cards.js";
 app.use("/cards", cardRoutes);
 import importRoutes from "./routes/import.js";
 app.use("/import", importRoutes);
 import chaseRoutes from "./routes/chase.js";
 app.use("/chase", chaseRoutes);
+import collectionRoutes from "./routes/collection.js";
+app.use("/collection", collectionRoutes);
 
 app.get("/user", async (req, res) => {
   try {

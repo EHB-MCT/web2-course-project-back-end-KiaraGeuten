@@ -36,3 +36,4 @@ typeof used in cards.js > https://www.w3schools.com/js/js_typeof.asp
 trim used in cards.js > https://dev.to/technoph1le/the-javascript-stringtrim-method-explained-4b61#how-it-works
 value mapping used in cards.js > https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
 deleting docs used in chase.js >https://www.mongodb.com/docs/drivers/node/v6.x/crud/delete/
+counting quantity in array used in colection.js > https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/reduce
