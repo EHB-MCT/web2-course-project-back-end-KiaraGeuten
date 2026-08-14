@@ -1,13 +1,19 @@
 ///post deck, put deck/:cardId, delete deck/:cardId
 
 // Serve the right data (owned cards vs. master collection)
+
+//version 1.1.0: side board
 // Save decks
 // Determine "complete" vs. "incomplete" status
 
 import express from "express";
 import { getDB } from "../database.js";
+import multer from "multer";
 
 const router = express.Router();
+const upload = multer({
+  storage: multer.memoryStorage(),
+});
 
 //TODO: calc avg power cost and energy cost:  loop through and compute the averages ->  sending  response.
 
@@ -45,97 +51,8 @@ router.get("/:name", async (req, res) => {
 //groupDecks
 router.post("/", async (req, res) => {
   try {
-    const db = getDB();
     const { deck_name, card_ids } = req.body;
-
-    //errors
-    if (!req.body) {
-      return res.status(400).json({
-        message: "The request is missing, request body is required",
-      });
-    }
-    // Deck name must be a string
-    if (typeof deck_name !== "string") {
-      return res.status(400).json({
-        message: "Deck name must be a string",
-      });
-    }
-
-    // Deck name cannot be empty
-    if (!deck_name.trim()) {
-      return res.status(400).json({
-        message: "Deck name is required",
-      });
-    }
-
-    //name is too long
-    if (deck_name.length > 25) {
-      return res.status(400).json({
-        message:
-          "Deck name is too long. It must be under 25 characters. Try to aim at 3 to 5 words",
-      });
-    }
-
-    const normalizedName = deck_name.trim().toLowerCase();
-    //check if name exists
-    const existingDeck = await db.collection("decks").findOne({
-      deck_name_normalized: normalizedName,
-    });
-
-    if (existingDeck) {
-      return res.status(409).json({
-        message: "Deck name already exists. Please choose another name.",
-      });
-    }
-    // no card ids
-    if (card_ids.length === 0) {
-      return res.status(400).json({
-        message: "card_ids cannot be empty",
-      });
-    }
-    if (card_ids.length > 100) {
-      return res.status(400).json({
-        message: "Too many card IDs",
-      });
-    }
-    // if card_id is no array
-    if (!Array.isArray(card_ids)) {
-      return res.status(400).json({
-        message: "card_ids must be an array",
-      });
-    }
-    // Every card ID must be a string and non-empty
-    for (const cardId of card_ids) {
-      if (typeof cardId !== "string") {
-        return res.status(400).json({
-          message: "Items inserted in card_ids must be strings",
-        });
-      }
-      if (!cardId.trim()) {
-        return res.status(400).json({
-          message: "card_ids contains an empty card ID",
-        });
-      }
-    }
-    //Check where those card IDs exist with trimmed ids
-    const cleanCardIds = card_ids.map((cardId) => cardId.trim());
-
-    let cards = await checkCardLocation(cleanCardIds);
-    await validateDeck(cleanCardIds);
-
-    //create deck
-    const now = new Date();
-    let deck = await db.collection("decks").insertOne({
-      user_id: "",
-      deck_name: deck_name,
-      deck_name_normalized: normalizedName,
-      card_ids: cleanCardIds,
-      created: now,
-      updated: now,
-    });
-
-    console.log("deck is created");
-
+    await createDeck(deck_name, card_ids);
     res.status(201).json({
       message:
         "You have succesfully created " +
@@ -155,6 +72,204 @@ router.post("/", async (req, res) => {
     });
   }
 });
+
+//TODO: match deck through helps and determine missing cards
+//deck imported txt
+router.post("/import", upload.single("deck"), async (req, res) => {
+  try {
+    let deckName;
+    let deckText;
+    //no file to read deck from -> look for json
+    if (req.file) {
+      // TXT upload
+      deckName = req.body.deck_name;
+      deckText = req.file.buffer.toString("utf-8");
+    } else {
+      // JSON
+      deckName = req.body.deck_name;
+      deckText = req.body.deck_text;
+    }
+    //  required data exists
+    if (typeof deckName !== "string" || !deckName.trim()) {
+      return res.status(400).json({
+        message: "Deck name is required",
+      });
+    }
+
+    if (typeof deckText !== "string" || !deckText.trim()) {
+      return res.status(400).json({
+        message: "Deck text is required",
+      });
+    }
+    // Turn the file into individual lines
+    const lines = deckText
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      //remove empty strings etc
+      .filter(Boolean);
+
+    //get db
+    const db = getDB();
+    // Store cards
+    const cardIds = [];
+
+    //loop through
+    for (const line of lines) {
+      //look for number "" card
+      const match = line.match(/^(\d+)\s+(.+)$/);
+
+      //skip headers
+      if (!match) {
+        continue;
+      }
+
+      //get numbers and name out of the line and turn them into number/ no spaces
+      const quantity = Number(match[1]);
+      const cardName = match[2].trim();
+
+      //catching absurd numbers
+      if (!Number.isSafeInteger(quantity) || quantity <= 0 || quantity > 100) {
+        return res.status(400).json({
+          message: `Invalid quantity for "${cardName}"`,
+        });
+      }
+      //look card in master collection
+      const card = await db.collection("cards").findOne({
+        name: cardName,
+        "metadata.alternate_art": false,
+        "metadata.overnumbered": false,
+        "metadata.signature": false,
+      });
+
+      // Card doesn't exist
+      if (!card) {
+        return res.status(400).json({
+          message: `Card "${cardName}" was not found in the card database`,
+        });
+      }
+
+      // Add  card ID  for every copy
+      for (let i = 0; i < quantity; i++) {
+        cardIds.push(card.id);
+      }
+    }
+    // Make sure we actually found cards
+    if (cardIds.length === 0) {
+      return res.status(400).json({
+        message: "No cards were found in the TXT file",
+      });
+    }
+
+    const result = await createDeck(deckName, cardIds);
+
+    return res.status(201).json({
+      message: "Deck imported successfully",
+      missing_cards: result.missing,
+    });
+  } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({
+        message: error.message,
+      });
+    }
+
+    return res.status(500).json({
+      message: error.message,
+    });
+  }
+});
+
+async function createDeck(deck_name, card_ids) {
+  const db = getDB();
+
+  //errors
+  if (!deck_name || !card_ids) {
+    return res.status(400).json({
+      message: "The request is missing, request body is required",
+    });
+  }
+  // Deck name must be a string
+  if (typeof deck_name !== "string") {
+    return res.status(400).json({
+      message: "Deck name must be a string",
+    });
+  }
+
+  // Deck name cannot be empty
+  if (!deck_name.trim()) {
+    return res.status(400).json({
+      message: "Deck name is required",
+    });
+  }
+
+  //name is too long
+  if (deck_name.length > 25) {
+    return res.status(400).json({
+      message:
+        "Deck name is too long. It must be under 25 characters. Try to aim at 3 to 5 words",
+    });
+  }
+
+  const normalizedName = deck_name.trim().toLowerCase();
+  //check if name exists
+  const existingDeck = await db.collection("decks").findOne({
+    deck_name_normalized: normalizedName,
+  });
+
+  if (existingDeck) {
+    return res.status(409).json({
+      message: "Deck name already exists. Please choose another name.",
+    });
+  }
+  // if card_id is no array
+  if (!Array.isArray(card_ids)) {
+    return res.status(400).json({
+      message: "card_ids must be an array",
+    });
+  }
+  // no card ids
+  if (card_ids.length === 0) {
+    return res.status(400).json({
+      message: "card_ids cannot be empty",
+    });
+  }
+  if (card_ids.length > 100) {
+    return res.status(400).json({
+      message: "Too many card IDs",
+    });
+  }
+
+  // Every card ID must be a string and non-empty
+  for (const cardId of card_ids) {
+    if (typeof cardId !== "string") {
+      return res.status(400).json({
+        message: "Items inserted in card_ids must be strings",
+      });
+    }
+    if (!cardId.trim()) {
+      return res.status(400).json({
+        message: "card_ids contains an empty card ID",
+      });
+    }
+  }
+  //Check where those card IDs exist with trimmed ids
+  const cleanCardIds = card_ids.map((cardId) => cardId.trim());
+
+  let cards = await checkCardLocation(cleanCardIds);
+  await validateDeck(cleanCardIds);
+
+  //create deck
+  const now = new Date();
+  let deck = await db.collection("decks").insertOne({
+    user_id: "",
+    deck_name: deck_name,
+    deck_name_normalized: normalizedName,
+    card_ids: cleanCardIds,
+    created: now,
+    updated: now,
+  });
+  return cards;
+}
 
 //helped that get and post can call to check which card ids are from which collection
 //find deck -> argument
