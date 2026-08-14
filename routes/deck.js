@@ -126,6 +126,7 @@ router.post("/", async (req, res) => {
     const cleanCardIds = card_ids.map((cardId) => cardId.trim());
 
     let cards = await checkCardLocation(cleanCardIds);
+    await validateDeck(card_ids);
 
     //create deck
     const now = new Date();
@@ -219,12 +220,11 @@ async function checkCardLocation(ids) {
 //is this a valid deck?
 
 async function validateDeck(ids) {
-  // do the cards match the domain?
+  //TODO: do the cards match the domain?
+  //TODO: sideboard
 
   // Invalid card combinations/restrictions
-  // Any other Riftbound deck-construction rules
 
-  //card rules sections
   //look at card in db and get whole card from id
   const cards = await db
     .collection("cards")
@@ -232,33 +232,70 @@ async function validateDeck(ids) {
       id: { $in: ids },
     })
     .toArray();
-  // extract the types
-  const types = cards.map((card) => card.classification.type);
 
-  // number of card rules
-  const legends = cards.filter((card) => card.classification.type === "Legend");
-  const battlefields = cards.filter(
-    (card) => card.classification.type === "Battlefield",
-  );
-  const runes = cards.filter((card) => card.classification.type === "Rune");
+  //card rules sections
+  // connect cardid to card
+  const cardById = new Map(cards.map((card) => [card.id, card]));
+  // Count the actual cards in the deck
+  const legend = [];
+  const battlefields = [];
+  const runes = [];
+  const mainDeck = [];
 
-  const mainDeck = cards.filter(
-    (card) =>
-      card.classification.type !== "Legend" &&
-      card.classification.type !== "Battlefield" &&
-      card.classification.type !== "Rune",
-  );
+  for (const id of ids) {
+    const card = cardById.get(id);
+
+    if (!card) {
+      throw new Error(`Card ${id} does not exist`);
+    }
+
+    const type = card.classification.type;
+
+    if (type === "Legend") {
+      legend.push(id);
+    } else if (type === "Battlefield") {
+      battlefields.push(id);
+    } else if (type === "Rune") {
+      runes.push(id);
+    } else {
+      mainDeck.push(id);
+    }
+  }
+
+  //deck structure
 
   //Not enough main-deck cards
   if (mainDeck.length < 40) {
     throw new Error("Your deck must contain at least 40 cards");
   }
-  // on legend
-  if (legends.length !== 1) {
+  // one legend + correct cu
+  if (legend.length !== 1) {
     throw new Error("Your deck must contain exactly one Legend");
   }
+  if (champions.length !== 1) {
+    throw new Error("Your deck must contain exactly one Champion Unit");
+  }
 
-  //champion unit
+  //get legend card
+  const legendCard = cardById.get(legends[0]);
+  //get legend tag
+  const legendTag = legendCard.tags[0];
+  //get CU in decklist
+  // Find Champion Units in the submitted deck
+  const champions = ids
+    .map((id) => cardById.get(id))
+    .filter(
+      (card) =>
+        card.classification.type === "Unit" &&
+        card.classification.supertype === "Champion",
+    );
+  //check if cu and legend match
+  for (const champion of champions) {
+    if (!champion.tags.includes(legendTag)) {
+      throw new Error(`${champion.name} does not belong to ${legendCard.name}`);
+    }
+  }
+
   // Wrong number of Battlefields
   if (battlefields.length !== 3) {
     throw new Error("Your deck must contain exactly three Battlefields");
@@ -280,10 +317,6 @@ async function validateDeck(ids) {
       throw new Error(
         `Card ${cardId} has ${count} copies. Only 3 copies are allowed.`,
       );
-    }
-
-    if (existingCards > 3) {
-      throw new Error("There are only 3 copies allowed of each card");
     }
   }
 
