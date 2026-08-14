@@ -52,13 +52,13 @@ router.get("/:name", async (req, res) => {
 router.post("/", async (req, res) => {
   try {
     const { deck_name, card_ids } = req.body;
-    await createDeck(deck_name, card_ids);
+    const result = await createDeck(deck_name, card_ids);
     res.status(201).json({
       message:
         "You have succesfully created " +
         deck_name +
         " & counted your missing cards",
-      missing_cards: cards.missing,
+      missing_cards: result.missing,
     });
   } catch (error) {
     if (error.status) {
@@ -73,7 +73,6 @@ router.post("/", async (req, res) => {
   }
 });
 
-//TODO: match deck through helps and determine missing cards
 //deck imported txt
 router.post("/import", upload.single("deck"), async (req, res) => {
   try {
@@ -184,30 +183,23 @@ async function createDeck(deck_name, card_ids) {
 
   //errors
   if (!deck_name || !card_ids) {
-    return res.status(400).json({
-      message: "The request is missing, request body is required",
-    });
+    throw new Error("The request is missing, request body is required");
   }
   // Deck name must be a string
   if (typeof deck_name !== "string") {
-    return res.status(400).json({
-      message: "Deck name must be a string",
-    });
+    throw new Error("Deck name must be a string");
   }
 
   // Deck name cannot be empty
   if (!deck_name.trim()) {
-    return res.status(400).json({
-      message: "Deck name is required",
-    });
+    throw new Error("Deck name is required");
   }
 
   //name is too long
   if (deck_name.length > 25) {
-    return res.status(400).json({
-      message:
-        "Deck name is too long. It must be under 25 characters. Try to aim at 3 to 5 words",
-    });
+    throw new Error(
+      "Deck name is too long. It must be under 25 characters. Try to aim at 3 to 5 words",
+    );
   }
 
   const normalizedName = deck_name.trim().toLowerCase();
@@ -217,39 +209,27 @@ async function createDeck(deck_name, card_ids) {
   });
 
   if (existingDeck) {
-    return res.status(409).json({
-      message: "Deck name already exists. Please choose another name.",
-    });
+    throw new Error("Deck name already exists. Please choose another name.");
   }
   // if card_id is no array
   if (!Array.isArray(card_ids)) {
-    return res.status(400).json({
-      message: "card_ids must be an array",
-    });
+    throw new Error("card_ids must be an array");
   }
   // no card ids
   if (card_ids.length === 0) {
-    return res.status(400).json({
-      message: "card_ids cannot be empty",
-    });
+    throw new Error("card_ids cannot be empty");
   }
   if (card_ids.length > 100) {
-    return res.status(400).json({
-      message: "Too many card IDs",
-    });
+    throw new Error("Too many card IDs");
   }
 
   // Every card ID must be a string and non-empty
   for (const cardId of card_ids) {
     if (typeof cardId !== "string") {
-      return res.status(400).json({
-        message: "Items inserted in card_ids must be strings",
-      });
+      throw new Error("Items inserted in card_ids must be strings");
     }
     if (!cardId.trim()) {
-      return res.status(400).json({
-        message: "card_ids contains an empty card ID",
-      });
+      throw new Error("card_ids contains an empty card ID");
     }
   }
   //Check where those card IDs exist with trimmed ids
@@ -330,7 +310,6 @@ async function checkCardLocation(ids) {
 //is this a valid deck?
 async function validateDeck(ids) {
   //TODO: do the cards match the domain?
-  //TODO: sideboard
 
   const db = getDB();
   //look at card in db and get whole card from id
@@ -341,10 +320,9 @@ async function validateDeck(ids) {
     })
     .toArray();
 
-  //card rules sections
   // connect cardid to card
   const cardById = new Map(cards.map((card) => [card.id, card]));
-  // Count the actual cards in the deck
+  //categorize
   const legend = [];
   const battlefields = [];
   const runes = [];
@@ -370,24 +348,30 @@ async function validateDeck(ids) {
     }
   }
 
-  //deck structure
-
+  //check one legend
+  if (legend.length !== 1) {
+    throw new Error("Your deck must contain exactly one Legend");
+  }
   //Not enough main-deck cards
   if (mainDeck.length < 40) {
     throw new Error("Your deck must contain at least 40 cards");
   }
-  // one legend + correct cu
-  if (legend.length !== 1) {
-    throw new Error("Your deck must contain exactly one Legend");
+  // Wrong number of Battlefields
+  if (battlefields.length !== 3) {
+    throw new Error("Your deck must contain exactly three Battlefields");
   }
-  if (champions.length !== 1) {
-    throw new Error("Your deck must contain exactly one Champion Unit");
+
+  // Wrong number of Runes
+  if (runes.length !== 12) {
+    throw new Error("Your deck must contain exactly twelve Runes");
   }
 
   //get legend card
-  const legendCard = cardById.get(legends[0]);
-  //get legend tag
+  const legendCard = cardById.get(legend[0]);
+  //get legend tag &domains
   const legendTag = legendCard.tags[0];
+  const legendDomains = legendCard.classification.domain;
+
   //get CU in decklist
   // Find Champion Units in the submitted deck
   const champions = ids
@@ -397,21 +381,20 @@ async function validateDeck(ids) {
         card.classification.type === "Unit" &&
         card.classification.supertype === "Champion",
     );
-  //check if cu and legend match
-  for (const champion of champions) {
-    if (!champion.tags.includes(legendTag)) {
-      throw new Error(`${champion.name} does not belong to ${legendCard.name}`);
-    }
+
+  //correct cu
+  if (champions.length === 0) {
+    throw new Error("Your deck must contain a Champion Unit");
   }
 
-  // Wrong number of Battlefields
-  if (battlefields.length !== 3) {
-    throw new Error("Your deck must contain exactly three Battlefields");
-  }
+  const matchingChampion = champions.find((champion) =>
+    champion.tags.includes(legendTag),
+  );
 
-  // Wrong number of Runes
-  if (runes.length !== 12) {
-    throw new Error("Your deck must contain exactly twelve Runes");
+  if (!matchingChampion) {
+    throw new Error(
+      `Your deck must contain a Champion Unit that belongs to ${legendCard.name}`,
+    );
   }
 
   //cards copies
@@ -428,7 +411,35 @@ async function validateDeck(ids) {
     }
   }
 
-  //And the Sideboard, which must be exactly 8 or 0 cards
+  //makes sure deck has correct domains
+  for (const id of mainDeck) {
+    const card = cardById.get(id);
+
+    const cardDomains = card.classification.domain;
+
+    const hasMatchingDomain = cardDomains.some((domain) =>
+      legendDomains.includes(domain),
+    );
+
+    if (!hasMatchingDomain) {
+      throw new Error(
+        `${card.name} does not belong to the domains of ${legendCard.name}`,
+      );
+    }
+  }
+
+  //correct runes
+  for (const id of runes) {
+    const rune = cardById.get(id);
+
+    const runeDomain = rune.classification.domain[0];
+
+    if (!legendDomains.includes(runeDomain)) {
+      throw new Error(
+        `${rune.name} does not belong to the domains of ${legendCard.name}`,
+      );
+    }
+  }
 }
 export default router;
 
