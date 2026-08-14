@@ -211,4 +211,24 @@ router.get("/search", async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+
+router.get("/champions/:tag", async (req, res) => {
+  try {
+    const db = getDB();
+    console.log(req.params);
+    const tag = req.params.tag.trim();
+
+    const champions = await db
+      .collection("cards")
+      .find({
+        "classification.type": "Unit",
+        "classification.supertype": "Champion",
+        tags: tag,
+      })
+      .toArray();
+    res.send(champions);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
 export default router;
