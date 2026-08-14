@@ -28,17 +28,18 @@ router.get("/", async (req, res) => {
 
 //TODO: add helper function
 //TODO: add status
+// TODO: f you really require names to be unique, put a unique index on the name.
 // when deck is loaded, check which id's dont exist in owned collection -> deck = incomplete
 router.get("/:name", async (req, res) => {
   try {
     const db = getDB();
     let deck_name = req.params.name;
-    console.log(deck_name);
+    const normalizedName = deck_name.trim().toLowerCase();
     const deck = await db
       .collection("decks")
-      .find({ deck_name: new RegExp(`^${deck_name}$`, "i") })
+      .find({ deck_name_normalized: normalizedName })
       .toArray();
-    console.log(deck);
+
     res.send(deck);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -50,42 +51,135 @@ router.get("/:name", async (req, res) => {
 //call helper
 //return to frontend
 
-//TODO: add helper function
-//TODO: check for fault entery /saftey
-//TODO: add error mess
+//TODO: validateDeck()
+//groupDecks
 router.post("/", async (req, res) => {
   try {
     const db = getDB();
     const { deck_name, card_ids } = req.body;
+
+    //errors
+    if (!req.body) {
+      return res.status(400).json({
+        message: "The request is missing, request body is required",
+      });
+    }
+    // Deck name must be a string
+    if (typeof deck_name !== "string") {
+      return res.status(400).json({
+        message: "Deck name must be a string",
+      });
+    }
+
+    // Deck name cannot be empty
+    if (!deck_name.trim()) {
+      return res.status(400).json({
+        message: "Deck name is required",
+      });
+    }
+
+    //name is too long
+    if (deck_name.length > 25) {
+      return res.status(400).json({
+        message:
+          "Deck name is too long. It must be under 25 characters. Try to aim at 3 to 5 words",
+      });
+    }
+
+    const normalizedName = deck_name.trim().toLowerCase();
+    //check if name exists
+    const existingDeck = await db.collection("decks").findOne({
+      deck_name_normalized: normalizedName,
+    });
+
+    if (existingDeck) {
+      return res.status(409).json({
+        message: "Deck name already exists. Please choose another name.",
+      });
+    }
+    // no card ids
+    if (!card_ids) {
+      return res.status(400).json({
+        message: "card_ids are missing. Please provide them.",
+      });
+    }
+    // if card_id is no array
+    if (!Array.isArray(card_ids)) {
+      return res.status(400).json({
+        message: "card_ids must be an array",
+      });
+    }
+    // Every card ID must be a string and non-empty
+    for (const cardId of card_ids) {
+      if (typeof cardId !== "string") {
+        return res.status(400).json({
+          message: "Items inserted in card_ids must be strings",
+        });
+      }
+      if (!cardId.trim()) {
+        return res.status(400).json({
+          message: "card_ids contains an empty card ID",
+        });
+      }
+    }
+    //Check where those card IDs exist with trimmed ids
+    const cleanCardIds = card_ids.map((cardId) => cardId.trim());
+
+    let cards = await checkCardLocation(cleanCardIds);
+
+    //create deck
     const now = new Date();
     let deck = await db.collection("decks").insertOne({
       user_id: "",
       deck_name: deck_name,
-      card_ids: card_ids,
+      deck_name_normalized: normalizedName,
+      card_ids: cleanCardIds,
       created: now,
       updated: now,
     });
 
+    console.log("deck is created");
+
     res.status(201).json({
-      message: "Deck created",
+      message:
+        "You have succesfully created " +
+        deck_name +
+        " & counted your missing cards",
+      missing_cards: cards.missing,
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    if (error.status) {
+      return res.status(error.status).json({
+        message: error.message,
+      });
+    }
+
+    return res.status(500).json({
+      message: "Internal server error",
+    });
   }
 });
 
-//helped that get and post can call to ccheck which card ids are from which collection
+//helped that get and post can call to check which card ids are from which collection
 //find deck -> argument
-async function checkCardLocation(deck) {
+async function checkCardLocation(ids) {
+  if (!ids) {
+    throw new Error(`No Id passed, check again`);
+  }
+
+  if (!Array.isArray(ids)) {
+    throw new Error("card_ids must be an array");
+  }
+
   const db = getDB();
   let ownedCardList = [];
-  let missingcardList = [];
+  let missingCardList = [];
 
   //finds all ids in owned
   const ownedCards = await db
     .collection("collections")
     .find({
-      card_id: { $in: deck.card_ids },
+      card_id: { $in: ids },
     })
     .toArray();
 
@@ -93,7 +187,7 @@ async function checkCardLocation(deck) {
   const masterCards = await db
     .collection("cards")
     .find({
-      card_id: { $in: deck.card_ids },
+      id: { $in: ids },
     })
     .toArray();
 
@@ -101,16 +195,18 @@ async function checkCardLocation(deck) {
   const ownedIds = new Set(ownedCards.map((card) => card.card_id));
 
   //make list of card id that exists
-  const masterIds = new Set(masterCards.map((card) => card.card_id));
+  const masterIds = new Set(masterCards.map((card) => card.id));
 
   //loop through lists
-  for (const item of deck.card_ids) {
+  for (const item of ids) {
     if (ownedIds.has(item)) {
       ownedCardList.push(item);
     } else if (masterIds.has(item)) {
-      missingcardList.push(item);
+      missingCardList.push(item);
     } else {
-      throw new Error(`Invalid card ID: ${item}`);
+      const error = new Error(`Invalid card ID: ${item}`);
+      error.status = 400;
+      throw error;
     }
   }
 
@@ -120,4 +216,79 @@ async function checkCardLocation(deck) {
   };
 }
 
+//is this a valid deck?
+
+async function validateDeck(ids) {
+  // do the cards match the domain?
+
+  // Invalid card combinations/restrictions
+  // Any other Riftbound deck-construction rules
+
+  //card rules sections
+  //look at card in db and get whole card from id
+  const cards = await db
+    .collection("cards")
+    .find({
+      id: { $in: ids },
+    })
+    .toArray();
+  // extract the types
+  const types = cards.map((card) => card.classification.type);
+
+  // number of card rules
+  const legends = cards.filter((card) => card.classification.type === "Legend");
+  const battlefields = cards.filter(
+    (card) => card.classification.type === "Battlefield",
+  );
+  const runes = cards.filter((card) => card.classification.type === "Rune");
+
+  const mainDeck = cards.filter(
+    (card) =>
+      card.classification.type !== "Legend" &&
+      card.classification.type !== "Battlefield" &&
+      card.classification.type !== "Rune",
+  );
+
+  //Not enough main-deck cards
+  if (mainDeck.length < 40) {
+    throw new Error("Your deck must contain at least 40 cards");
+  }
+  // on legend
+  if (legends.length !== 1) {
+    throw new Error("Your deck must contain exactly one Legend");
+  }
+
+  //champion unit
+  // Wrong number of Battlefields
+  if (battlefields.length !== 3) {
+    throw new Error("Your deck must contain exactly three Battlefields");
+  }
+
+  // Wrong number of Runes
+  if (runes.length !== 12) {
+    throw new Error("Your deck must contain exactly twelve Runes");
+  }
+
+  //cards copies
+  const cardCounts = new Map();
+  for (const id of ids) {
+    const currentCount = cardCounts.get(id) || 0;
+    cardCounts.set(id, currentCount + 1);
+  }
+  for (const [cardId, count] of cardCounts) {
+    if (count > 3) {
+      throw new Error(
+        `Card ${cardId} has ${count} copies. Only 3 copies are allowed.`,
+      );
+    }
+
+    if (existingCards > 3) {
+      throw new Error("There are only 3 copies allowed of each card");
+    }
+  }
+
+  //And the Sideboard, which must be exactly 8 or 0 cards
+}
 export default router;
+
+//im a teapot (418) easter egg, poro

@@ -40,3 +40,4 @@ counting quantity in array used in colection.js > https://developer.mozilla.org/
 collection properties used in collection.js > https://www.mongodb.com/docs/drivers/node/current/crud/query/count/ & https://www.mongodb.com/docs/manual/reference/operator/aggregation/group/ & https://www.mongodb.com/docs/manual/reference/operator/aggregation/lookup/
 date/timestamp used in deck.js > https://www.mongodb.com/community/forums/t/how-to-use-and-format-the-timestamp-in-javascript/132717/2
 set list usage used in decks.js >https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Set?utm_source=chatgpt.com
+http request used in deck.js >https://en.wikipedia.org/wiki/List_of_HTTP_status_codes
