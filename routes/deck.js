@@ -1,8 +1,4 @@
-///card restrictions ( 1 legend, champion unit, amount of bttlefields, minimum/max qmount of cards etc),post deck, put deck/:cardId, delete deck/:cardId
-
-//TODO: add helper function overall
-
-//TODO: if deck post -> check if name is in use throw error
+///post deck, put deck/:cardId, delete deck/:cardId
 
 // Serve the right data (owned cards vs. master collection)
 // Save decks
@@ -46,12 +42,6 @@ router.get("/:name", async (req, res) => {
   }
 });
 
-//store card ids -> essentially deck + time
-//use create() for storing it in mongo db
-//call helper
-//return to frontend
-
-//TODO: validateDeck()
 //groupDecks
 router.post("/", async (req, res) => {
   try {
@@ -98,9 +88,14 @@ router.post("/", async (req, res) => {
       });
     }
     // no card ids
-    if (!card_ids) {
+    if (card_ids.length === 0) {
       return res.status(400).json({
-        message: "card_ids are missing. Please provide them.",
+        message: "card_ids cannot be empty",
+      });
+    }
+    if (card_ids.length > 100) {
+      return res.status(400).json({
+        message: "Too many card IDs",
       });
     }
     // if card_id is no array
@@ -126,7 +121,7 @@ router.post("/", async (req, res) => {
     const cleanCardIds = card_ids.map((cardId) => cardId.trim());
 
     let cards = await checkCardLocation(cleanCardIds);
-    await validateDeck(card_ids);
+    await validateDeck(cleanCardIds);
 
     //create deck
     const now = new Date();
@@ -156,7 +151,7 @@ router.post("/", async (req, res) => {
     }
 
     return res.status(500).json({
-      message: "Internal server error",
+      message: error.message,
     });
   }
 });
@@ -218,13 +213,11 @@ async function checkCardLocation(ids) {
 }
 
 //is this a valid deck?
-
 async function validateDeck(ids) {
   //TODO: do the cards match the domain?
   //TODO: sideboard
 
-  // Invalid card combinations/restrictions
-
+  const db = getDB();
   //look at card in db and get whole card from id
   const cards = await db
     .collection("cards")
@@ -308,7 +301,7 @@ async function validateDeck(ids) {
 
   //cards copies
   const cardCounts = new Map();
-  for (const id of ids) {
+  for (const id of mainDeck) {
     const currentCount = cardCounts.get(id) || 0;
     cardCounts.set(id, currentCount + 1);
   }
