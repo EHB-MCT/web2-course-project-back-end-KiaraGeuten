@@ -1,10 +1,5 @@
-///post deck, put deck/:cardId, delete deck/:cardId
-
-// Serve the right data (owned cards vs. master collection)
-
 //version 1.1.0: side board
 // Save decks
-// Determine "complete" vs. "incomplete" status
 
 import express from "express";
 import { getDB } from "../database.js";
@@ -15,40 +10,124 @@ const upload = multer({
   storage: multer.memoryStorage(),
 });
 
-//TODO: calc avg power cost and energy cost:  loop through and compute the averages ->  sending  response.
-
 //get all decks
 router.get("/", async (req, res) => {
   try {
     const db = getDB();
-    const deck = await db.collection("decks").find({}).toArray();
-    res.send(deck);
+    const decks = await db.collection("decks").find({}).toArray();
+    const result = [];
+
+    for (const deck of decks) {
+      // Get ideas
+      const cards = await db
+        .collection("cards")
+        .find({
+          id: { $in: deck.card_ids },
+        })
+        .toArray();
+
+      // Connect card ID -> card
+      const cardById = new Map(cards.map((card) => [card.id, card]));
+
+      let totalEnergy = 0;
+      let totalPower = 0;
+      let energyCards = 0;
+      let powerCards = 0;
+      let averagePower;
+      let averageEnergy;
+
+      //every id -> copies
+      for (const id of deck.card_ids) {
+        const card = cardById.get(id);
+
+        if (!card) {
+          throw new Error(`Card ${id} does not exist`);
+        }
+
+        const type = card.classification.type;
+
+        // only main deck
+        if (type === "Legend" || type === "Battlefield" || type === "Rune") {
+          continue;
+        }
+        //count energy
+        if (typeof card.attributes.energy === "number") {
+          totalEnergy += card.attributes.energy;
+          energyCards++;
+        }
+        // count power
+        if (typeof card.attributes.power === "number") {
+          totalPower += card.attributes.power;
+          powerCards++;
+        }
+      }
+
+      //count average
+      if (energyCards > 0) {
+        averageEnergy = totalEnergy / energyCards;
+      } else {
+        averageEnergy = 0;
+      }
+
+      if (powerCards > 0) {
+        averagePower = totalPower / powerCards;
+      } else {
+        averagePower = 0;
+      }
+
+      // Add averages to the deck
+      result.push({
+        ...deck,
+        average_energy: averageEnergy,
+        average_power: averagePower,
+      });
+    }
+
+    res.status(200).json(result);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-//TODO: add helper function
-//TODO: add status
-// TODO: f you really require names to be unique, put a unique index on the name.
-// when deck is loaded, check which id's dont exist in owned collection -> deck = incomplete
 router.get("/:name", async (req, res) => {
   try {
     const db = getDB();
     let deck_name = req.params.name;
-    const normalizedName = deck_name.trim().toLowerCase();
-    const deck = await db
-      .collection("decks")
-      .find({ deck_name_normalized: normalizedName })
-      .toArray();
 
-    res.send(deck);
+    if (!deck_name || !deck_name.trim()) {
+      return res.status(400).json({
+        message: "Deck name is required",
+      });
+    }
+    const normalizedName = deck_name.trim().toLowerCase();
+
+    const deck = await db.collection("decks").findOne({
+      deck_name_normalized: normalizedName,
+    });
+
+    if (!deck) {
+      return res.status(404).json({
+        message: "Deck not found",
+      });
+    }
+
+    // Check which cards the user owns
+    const cardStatus = await checkCardLocation(deck.card_ids);
+
+    // Determine whether the deck is complete
+    const status = cardStatus.missing.length === 0 ? "complete" : "incomplete";
+
+    return res.status(200).json({
+      ...deck,
+      owned_cards: cardStatus.owned,
+      missing_cards: cardStatus.missing,
+      status: status,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-//groupDecks
 router.post("/", async (req, res) => {
   try {
     const { deck_name, card_ids } = req.body;
@@ -124,26 +203,34 @@ router.post("/import", upload.single("deck"), async (req, res) => {
 
       //get numbers and name out of the line and turn them into number/ no spaces
       const quantity = Number(match[1]);
-      const cardName = match[2].trim();
+      const importedName = match[2].trim();
 
       //catching absurd numbers
       if (!Number.isSafeInteger(quantity) || quantity <= 0 || quantity > 100) {
         return res.status(400).json({
-          message: `Invalid quantity for "${cardName}"`,
+          message: `Invalid quantity for "${importedName}"`,
         });
       }
+
+      const dbCardName = importedName.replace(/^([^,]+),\s*(.+)$/, "$1 - $2");
+
       //look card in master collection
-      const card = await db.collection("cards").findOne({
-        name: cardName,
-        "metadata.alternate_art": false,
-        "metadata.overnumbered": false,
-        "metadata.signature": false,
-      });
+      const card = await db.collection("cards").findOne(
+        {
+          name: dbCardName,
+          "metadata.alternate_art": false,
+          "metadata.overnumbered": false,
+          "metadata.signature": false,
+        },
+        {
+          collation: { locale: "en", strength: 2 },
+        },
+      );
 
       // Card doesn't exist
       if (!card) {
         return res.status(400).json({
-          message: `Card "${cardName}" was not found in the card database`,
+          message: `Card "${importedName}" was not found in the card database`,
         });
       }
 
@@ -441,6 +528,133 @@ async function validateDeck(ids) {
     }
   }
 }
+
+router.put("/:name/:cardId", async (req, res) => {
+  try {
+    const db = getDB();
+
+    const name = req.params.name;
+    const cardId = req.params.cardId;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({
+        message: "Deck name is required",
+      });
+    }
+
+    if (!cardId || !cardId.trim()) {
+      return res.status(400).json({
+        message: "Card ID is required",
+      });
+    }
+
+    const normalizedName = name.trim().toLowerCase();
+
+    // Find deck
+    const deck = await db.collection("decks").findOne({
+      deck_name_normalized: normalizedName,
+    });
+
+    if (!deck) {
+      return res.status(404).json({
+        message: "Deck not found",
+      });
+    }
+
+    // Check card exists
+    const card = await db.collection("cards").findOne({
+      id: cardId.trim(),
+    });
+
+    if (!card) {
+      return res.status(404).json({
+        message: "Card not found",
+      });
+    }
+
+    // Add card
+    const updatedCardIds = [...deck.card_ids, cardId.trim()];
+
+    // Validate the new deck BEFORE saving it
+    await validateDeck(updatedCardIds);
+
+    // Check owned/missing cards
+    const cardStatus = await checkCardLocation(updatedCardIds);
+
+    // Update deck
+    await db.collection("decks").updateOne(
+      { _id: deck._id },
+      {
+        $set: {
+          card_ids: updatedCardIds,
+          updated: new Date(),
+        },
+      },
+    );
+
+    return res.status(200).json({
+      message: `Added ${card.name} to ${deck.deck_name}`,
+      card_ids: updatedCardIds,
+      owned_cards: cardStatus.owned,
+      missing_cards: cardStatus.missing,
+      status: cardStatus.missing.length === 0 ? "complete" : "incomplete",
+    });
+  } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({
+        message: error.message,
+      });
+    }
+
+    return res.status(500).json({
+      message: error.message,
+    });
+  }
+});
+
+router.delete("/:name", async (req, res) => {
+  try {
+    const db = getDB();
+    const name = req.params.name;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({
+        message: "Deck name is required",
+      });
+    }
+
+    const normalizedName = name.trim().toLowerCase();
+
+    const found = await db.collection("decks").findOne({
+      deck_name_normalized: normalizedName,
+    });
+
+    if (!found) {
+      return res.status(404).json({
+        message: "Deck not found",
+      });
+    }
+
+    const result = await db.collection("decks").deleteOne({
+      _id: found._id,
+    });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({
+        message: "Deck not found",
+      });
+    }
+
+    return res.status(200).json({
+      message: `You have successfully removed ${name} from your database`,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message,
+    });
+  }
+});
+
 export default router;
 
 //im a teapot (418) easter egg, poro
