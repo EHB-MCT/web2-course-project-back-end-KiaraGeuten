@@ -83,4 +83,37 @@ router.post("/", async (req, res) => {
     });
   }
 });
+
+router.delete("/:cardId", async (req, res) => {
+  try {
+    const db = getDB();
+    const cardId = req.params.cardId;
+
+    if (!cardId || !cardId.trim()) {
+      return res.status(400).json({
+        message: "Card ID is required",
+      });
+    }
+
+    const result = await db.collection("wishlist").deleteOne({
+      card_id: cardId,
+    });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({
+        message: "Card is not in your wishlist",
+      });
+    }
+
+    return res.status(200).json({
+      message: "Card removed from wishlist",
+      card_id: cardId,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message,
+    });
+  }
+});
+
 export default router;
