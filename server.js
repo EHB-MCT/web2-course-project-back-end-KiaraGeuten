@@ -54,12 +54,14 @@ import importRoutes from "./routes/import.js";
 import chaseRoutes from "./routes/chase.js";
 import collectionRoutes from "./routes/collection.js";
 import deckRoutes from "./routes/deck.js";
+import wishlistRoutes from "./routes/wishlist.js";
 
 app.use("/cards", cardRoutes);
 app.use("/import", importRoutes);
 app.use("/chase", chaseRoutes);
 app.use("/collection", collectionRoutes);
 app.use("/deck", deckRoutes);
+app.use("/wishlist", wishlistRoutes);
 
 app.get("/user", async (req, res) => {
   try {
