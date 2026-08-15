@@ -250,7 +250,9 @@ router.post("/import", upload.single("deck"), async (req, res) => {
 
     return res.status(201).json({
       message: "Deck imported successfully",
+      deck_name: deckName,
       missing_cards: result.missing,
+      owned_cards: result.owned,
     });
   } catch (error) {
     if (error.status) {
