@@ -15,10 +15,8 @@ const router = express.Router();
 router.get("/", async (req, res) => {
   try {
     const db = getDB();
+
     const cards = await db.collection("collections").find({}).toArray();
-    if (cards.length === 0) {
-      return res.status(404).json({ message: "collection empty" });
-    }
 
     const result = cards.map(function (card) {
       return {
@@ -26,9 +24,12 @@ router.get("/", async (req, res) => {
         available: calculateAvailable(card),
       };
     });
-    res.send(result);
+
+    res.status(200).json(result);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({
+      message: error.message,
+    });
   }
 });
 
