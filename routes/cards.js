@@ -80,11 +80,6 @@ router.get("/search", async (req, res) => {
       });
     }
     //set
-    if (qSet && typeof qSet !== "string") {
-      return res.status(400).json({
-        message: "Invalid set",
-      });
-    }
 
     if (qSet) {
       filters.push({
@@ -156,12 +151,6 @@ router.get("/search", async (req, res) => {
     }
 
     //rarity
-
-    if (qRarity && typeof qRarity !== "string") {
-      return res.status(400).json({
-        message: "Invalid set",
-      });
-    }
 
     if (qRarity) {
       filters.push({
