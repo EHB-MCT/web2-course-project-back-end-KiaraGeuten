@@ -1,6 +1,10 @@
-/// get, post, put, delete, count + import
-//user id left in so if needed filter on user id for their collection
-// trade/extra — derived (total − 4)
+// Collection
+// total_quantity = copies the user owns
+// in_binder = whether this card is in the binder
+// decks = copies currently allocated to decks
+// available/trade = total_quantity - copies in binder - copies currently in decks
+
+//user id -> 2.0.0
 
 import express from "express";
 import { getDB } from "../database.js";
@@ -16,7 +20,13 @@ router.get("/", async (req, res) => {
       return res.status(404).json({ message: "collection empty" });
     }
 
-    res.send(cards);
+    const result = cards.map(function (card) {
+      return {
+        ...card,
+        available: calculateAvailable(card),
+      };
+    });
+    res.send(result);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -25,36 +35,57 @@ router.get("/", async (req, res) => {
 router.post("/", async (req, res) => {
   try {
     const db = getDB();
+    const collection = db.collection("collections");
 
-    //no id given
+    // Check card ID
     if (!req.body.card_id) {
       return res.status(400).send("Card ID is required");
     }
+
+    // Check quantity
+    if (!req.body.quantity || req.body.quantity < 1) {
+      return res.status(400).send("Quantity must be at least 1");
+    }
+
     // Check if card exists in master collection
     const card = await db.collection("cards").findOne({
       id: req.body.card_id,
     });
 
-    //throws error if card doesnt exist in master collection
     if (!card) {
       return res.status(404).send("Card does not exist");
     }
 
-    // Add card to owned collection
-    const collection = db.collection("collections");
+    // Check if user already owns this card
+    const existingCard = await collection.findOne({
+      card_id: req.body.card_id,
+    });
 
+    if (existingCard) {
+      await collection.updateOne(
+        { card_id: req.body.card_id },
+        {
+          $inc: {
+            total_quantity: Number(req.body.quantity),
+          },
+          $set: {
+            in_binder: Boolean(req.body.in_binder),
+          },
+        },
+      );
+
+      return res.send("Card quantity successfully updated");
+    }
+
+    // CARD DOES NOT EXIST YET
     await collection.insertOne({
       user_id: "",
       card_id: req.body.card_id,
-      in_binder: req.body.in_binder,
-      decks: [
-        {
-          deck_name: req.body.deck_name,
-          quantity: req.body.deck_quantity,
-        },
-      ],
-      total_quantity: req.body.total_quantity,
+      in_binder: Boolean(req.body.in_binder),
+      decks: [],
+      total_quantity: Number(req.body.quantity),
     });
+
     res.send("You have successfully added the card to your database");
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -64,44 +95,58 @@ router.post("/", async (req, res) => {
 router.put("/:cardId", async (req, res) => {
   try {
     const db = getDB();
-    let card_id = req.params.cardId;
-    //no id given
+    const collection = db.collection("collections");
+
+    const card_id = req.params.cardId;
+
     if (!card_id) {
       return res.status(400).send("Card ID is required");
     }
 
-    // collection is empty
-    const collection = db.collection("collections");
-    const count = await collection.countDocuments();
-    if (count === 0) {
-      return res.status(404).json({ message: "Collection is empty" });
-    }
-
-    // Check if card exists in owned collection
-    const card = await db.collection("collections").findOne({
+    const existingCard = await collection.findOne({
       card_id: card_id,
     });
-    //throws error if card doesnt exist in  collection
-    if (!card) {
-      return res.status(404).send("Card does not exist");
+
+    if (!existingCard) {
+      return res.status(404).send("Card does not exist in collection");
     }
 
-    // update card to owned collection
-    const deckIndex = req.body.deck_index;
+    if (req.body.total_quantity === undefined || req.body.total_quantity < 1) {
+      return res.status(400).send("Total quantity must be at least 1");
+    }
+
+    const newQuantity = Number(req.body.total_quantity);
+    const newBinder = Boolean(req.body.in_binder);
+
+    const copiesInDecks = Array.isArray(existingCard.decks)
+      ? existingCard.decks.reduce(function (total, deck) {
+          return total + (deck.quantity || 0);
+        }, 0)
+      : 0;
+
+    const copiesInBinder = newBinder ? 1 : 0;
+
+    if (newQuantity < copiesInDecks + copiesInBinder) {
+      return res
+        .status(400)
+        .send(
+          `You cannot own ${newQuantity} copies because ${
+            copiesInDecks + copiesInBinder
+          } are already allocated to decks/binder`,
+        );
+    }
+
     await collection.updateOne(
       { card_id: card_id },
       {
         $set: {
-          user_id: "",
-          card_id: card_id,
-          in_binder: req.body.in_binder,
-          [`decks.${deckIndex}.deck_name`]: req.body.deck_name,
-          [`decks.${deckIndex}.quantity`]: req.body.deck_quantity,
-          total_quantity: req.body.total_quantity,
+          total_quantity: newQuantity,
+          in_binder: newBinder,
         },
       },
     );
-    res.send("You have successfully updated the card to your database");
+
+    res.send("Collection card successfully updated");
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -204,4 +249,18 @@ router.get("/count/set", async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+
+//helper function for calcuating copies
+function calculateAvailable(card) {
+  const copiesInBinder = card.in_binder ? 1 : 0;
+
+  const copiesInDecks = Array.isArray(card.decks)
+    ? card.decks.reduce(function (total, deck) {
+        return total + (deck.quantity || 0);
+      }, 0)
+    : 0;
+
+  return Math.max(0, card.total_quantity - copiesInBinder - copiesInDecks);
+}
+
 export default router;
