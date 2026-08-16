@@ -16,23 +16,7 @@ router.get("/", async (req, res) => {
       return res.status(404).json({ message: "collection empty" });
     }
 
-    const cardsWithTrade = cards.map((card) => {
-      const deckQuantity = card.decks.reduce(
-        (total, deck) => total + deck.quantity,
-        0,
-      );
-      const binder = card.in_binder ? 1 : 0;
-      let trade = card.total_quantity - deckQuantity - binder;
-      if (trade < 0) {
-        trade = 0;
-      }
-      return {
-        ...card,
-        trade: trade,
-      };
-    });
-
-    res.send(cardsWithTrade);
+    res.send(cards);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
