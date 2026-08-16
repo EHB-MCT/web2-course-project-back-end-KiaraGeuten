@@ -57,7 +57,9 @@ import deckRoutes from "./routes/deck.js";
 import wishlistRoutes from "./routes/wishlist.js";
 import tradeRoutes from "./routes/trade.js";
 import tradesRoutes from "./routes/trades.js";
+import cors from "cors";
 
+app.use(cors());
 app.use("/cards", cardRoutes);
 app.use("/import", importRoutes);
 app.use("/chase", chaseRoutes);

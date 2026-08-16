@@ -16,42 +16,65 @@ dotenv
 mongodb
 multer
 express
+cors
 
 ## API
 
 The API is split into separate route files depending on the functionality.
 
-`/cards`
+GET /cards
 
-Handles Riftbound card information. Cards can be searched and retrieved from the card database. this is where the master collection lives.
+GET /search
 
-`/collection`
+GET /champions/:tag
 
-Keeps track of the cards a user owns and provides information about their collection.
+GET /chase
 
-`/deck`
+POST /chase/:cardId
 
-Allows users to create and manage Riftbound decks using cards from their collection. If cards chosen from another collection, show which cards. Txt and JSON imports are allowed.
+DELETE /chase/:cardId
 
-`/trades`
+GET /count
 
-Handles a user's trades and keeps track of cards being traded.
+GET /count/set
 
-`/trade`
+GET /deck
 
-Show which cards are available for trading
+GET /deck/:name
 
-`/wishlist`
+POST /deck
 
-Allows users to keep track of cards they are still looking for.
+POST /deck/import
 
-`/chase`
+PUT /deck/:name/:cardId
 
-Keeps track of chase cards that users are interested in collecting.
+DELETE /deck/:name
 
-/import
+GET /collection
 
-Handles importing card from the Riftcodex api
+POST /collection
+
+PUT /collection/:cardId
+
+DELETE /collection/:cardId
+
+POST /import
+
+GET /trade
+
+POST /trade
+
+DELETE /trade/:cardId
+
+GET /trades
+
+POST /trades
+
+GET /wishlist
+
+POST /wishlist
+
+DELETE /:cardId
 
 The API routes are separated into different files to keep the backend organised:
 
