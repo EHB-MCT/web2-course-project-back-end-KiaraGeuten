@@ -198,9 +198,7 @@ router.get("/search", async (req, res) => {
 
     //if no matches found
     if (search.length === 0) {
-      return res.status(404).json({
-        message: "No cards matched your search. Please check your query",
-      });
+      return res.status(200).json([]);
     }
 
     res.send(search);
