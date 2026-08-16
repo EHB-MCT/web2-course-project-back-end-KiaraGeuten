@@ -167,6 +167,25 @@ router.delete("/:cardId", async (req, res) => {
   }
 });
 
+//delete everything in colelction
+router.delete("/", async (req, res) => {
+  try {
+    const db = getDB();
+    const collection = db.collection("collections");
+
+    const result = await collection.deleteMany({});
+
+    res.status(200).json({
+      message: "Collection successfully emptied",
+      deletedCount: result.deletedCount,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+});
+
 router.get("/count", async (req, res) => {
   try {
     const db = getDB();
