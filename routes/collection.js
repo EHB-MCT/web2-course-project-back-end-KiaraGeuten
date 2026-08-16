@@ -99,6 +99,12 @@ router.put("/:cardId", async (req, res) => {
     const collection = db.collection("collections");
 
     const card_id = req.params.cardId;
+    if (card_id === "poro") {
+      return res.status(200).json({
+        valid: true,
+        message: "You have found the Ol'Poro. Welcome. Have a Poro Snack",
+      });
+    }
 
     if (!card_id) {
       return res.status(400).send("Card ID is required");

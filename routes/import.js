@@ -54,9 +54,6 @@ router.post("/", async (req, res) => {
 
     // --------------------------------------------------
     // 3. Remove duplicates from the API response
-    //
-    // If RiftCodex returns the same riftbound_id more
-    // than once, only import it once.
     // --------------------------------------------------
 
     const uniqueCards = new Map();
@@ -82,17 +79,6 @@ router.post("/", async (req, res) => {
 
     // --------------------------------------------------
     // 4. Upsert cards using riftbound_id
-    //
-    // IMPORTANT:
-    // We do NOT set _id here.
-    //
-    // If the card already exists, MongoDB keeps its
-    // existing _id and id.
-    //
-    // This preserves your existing collection
-    // relationships.
-    //
-    // If the card is new, MongoDB creates a new _id.
     // --------------------------------------------------
 
     const operations = cardsToImport.map((card) => ({
@@ -125,12 +111,6 @@ router.post("/", async (req, res) => {
 
     // --------------------------------------------------
     // 6. Create unique index AFTER import
-    //
-    // This prevents future duplicate riftbound_id values.
-    //
-    // NOTE:
-    // This will fail if your database still contains
-    // existing duplicates.
     // --------------------------------------------------
 
     await cards.createIndex({ riftbound_id: 1 }, { unique: true });
