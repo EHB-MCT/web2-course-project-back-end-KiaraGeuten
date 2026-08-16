@@ -21,13 +21,13 @@ router.get("/search", async (req, res) => {
   try {
     const db = getDB();
     let qName = req.query.name?.trim();
-    let qSet = req.query.set?.trim();
+    let qSet = req.query.set?.split(",");
     let qEnergy = req.query.energy;
     let qMight = req.query.might;
     let qPower = req.query.power;
     let qDomain = req.query.domain?.split(",");
     let qType = req.query.type?.split(",");
-    let qRarity = req.query.rarity?.trim();
+    let qRarity = req.query.rarity?.split(",");
     let qAlternateArt = req.query.alternate_art?.trim();
     let qOvernumbered = req.query.overnumbered?.trim();
     let qSignature = req.query.signature?.trim();
@@ -88,7 +88,11 @@ router.get("/search", async (req, res) => {
 
     if (qSet) {
       filters.push({
-        "set.set_id": new RegExp(qSet, "i"),
+        "set.set_id": {
+          $in: qSet.map(function (set) {
+            return new RegExp(`^${set.trim()}$`, "i");
+          }),
+        },
       });
     }
 
@@ -161,7 +165,11 @@ router.get("/search", async (req, res) => {
 
     if (qRarity) {
       filters.push({
-        "classification.rarity": new RegExp(`^${qRarity}$`, "i"),
+        "classification.rarity": {
+          $in: qRarity.map(function (rarity) {
+            return new RegExp(`^${rarity.trim()}$`, "i");
+          }),
+        },
       });
     }
 
